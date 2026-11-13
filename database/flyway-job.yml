@@ -1,0 +1,37 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: flyway-migration-job
+  # Same namespace as ecommerce-secrets, which supplies the database credentials.
+  namespace: ecommerce
+spec:
+  template:
+    spec:
+      containers:
+        - name: flyway
+          image: flyway/flyway:9-alpine
+          args:
+            - -url=jdbc:postgresql://postgres:5432/user_db
+            - -baselineOnMigrate=true
+            - -locations=filesystem:/flyway/sql
+            - migrate
+          env:
+            - name: FLYWAY_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: POSTGRES_USER
+            - name: FLYWAY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secrets
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: migration-scripts
+              mountPath: /flyway/sql
+      restartPolicy: OnFailure
+      volumes:
+        - name: migration-scripts
+          configMap:
+            name: flyway-scripts
+  backoffLimit: 3
